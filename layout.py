@@ -162,7 +162,6 @@ def build_signup_layout():
 Hello {user_data['name']},
 
 Welcome to Splitwise!
-
 Your One-Time Password (OTP) is:
 
 {otp}
@@ -173,19 +172,23 @@ Please do not share this OTP with anyone for security reasons.
 If you did not request this, you can safely ignore this email.
 
 Happy splitting!
-— Splitwise Team
 """
 
-            message = MIMEText(body)
-            message["Subject"] = subject
-            message["From"] = sender_email
-            message["To"] = receiver_email
+            msg = MIMEMultipart(body)
+            msg["subject"] = subject 
+            msg["From"] = sender_email 
+            msg["To"] = receiver_email 
+            msg.attach(MIMEText(body,"plain"))
+            try:
+                server = smtplib.SMTP("smtp.gmail.com",587)
+                server.starttls()
+                server.login(sender_email,sender_password)
+                server.sendmail(sender_email,receiver_email,msg.as_string())
+                server.quit()
+                show_popup("OTP Sent!","Please check your email")
 
-            server = smtplib.SMTP("smtp.gmail.com", 587)
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
-            server.quit()
+            except:
+                show_popup("Error","Failed to Send the Email!")
 
             show_popup("Success", "OTP has been sent to your email!")
 
