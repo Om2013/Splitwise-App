@@ -29,7 +29,7 @@ user_data = {"otp": "",
 
 sm = ScreenManager(transition=SlideTransition())
 
-
+signed_in_name=""
 # ---------------- POPUP ----------------
 def show_popup(title, message):
     popup = Popup(
@@ -49,7 +49,7 @@ def write_email_and_password(userid, email, password, name):
     ref.set({
         "name": name,
         "password": password,
-        "email": email
+        "email": email3
     })
     print(f"USER {userid} is added successfully")
 
@@ -265,19 +265,24 @@ def build_login_layout():
 
 # ---------------- DASHBOARD ----------------
 def build_dashboard():
+    global owe_amount_label, others_owe_amount, signed_in_name
     layout = FloatLayout(size_hint=(1,1))
     layout.add_widget(Label(text="Welcome to Splitwise!", font_size=50, pos_hint={"center_x":0.5,"top":1}))
 
     info_float = FloatLayout(size_hint=(None,None), size=(800,120), pos_hint={"center_x":0.5,"top":0.85})
 
     owe_layout = BoxLayout(orientation="vertical", size_hint=(None,None), size=(250,100), pos_hint={"center_x":0.35,"center_y":0.5})
-    owe_layout.add_widget(Label(text="You Owe:", font_size=28))
-    owe_layout.add_widget(Label(text=str(0), font_size=28))
+    owe_label=Label(text="You Owe:", font_size=28)
+    owe_layout.add_widget(owe_label)
+    owe_amount_label=Label(text=str(0), font_size=28)
+    owe_layout.add_widget(owe_amount_label)
     info_float.add_widget(owe_layout)
 
     others_owe_layout = BoxLayout(orientation="vertical", size_hint=(None,None), size=(250,100), pos_hint={"center_x":0.65,"center_y":0.5})
-    others_owe_layout.add_widget(Label(text="Others Owe:", font_size=28))
-    others_owe_layout.add_widget(Label(text=str(0), font_size=28))
+    others_owe_label=Label(text="Others Owe:", font_size=28)
+    others_owe_amount=Label(text=str(0), font_size=28)
+    others_owe_layout.add_widget(others_owe_label)
+    others_owe_layout.add_widget(others_owe_amount)
     info_float.add_widget(others_owe_layout)
 
     layout.add_widget(info_float)
@@ -311,8 +316,17 @@ def build_dashboard():
     add_expense_button.bind(on_press=go_expense)
     add_group_member_button.bind(on_press=go_member)
 
+    if signed_in_name:
+        i_owe,others_owe_me=calculate_balance()
+        owe_amount_label.text(str(i_owe))
+        others_owe_amount.text(str(others_owe_me))
+    else:
+        i_owe=0.0
+        others_owe_me=0.0
+
     group=fetch_group_members()
     num_of_length=len(group)
+    
 
     columns=3+num_of_length
 
@@ -323,9 +337,16 @@ def build_dashboard():
 
     
     ref = db.reference("transactions")
-    transactions=ref.get()
-    if transactions:
-        for transaction_id, transaction_data in transactions.items():
+    data=ref.get()
+
+    print(data)
+    i_owe=0.0
+    others_owe=0.0
+
+    if not data:
+        return i_owe, others_owe
+    if data:
+        for transaction_id, transaction_data in data.items():
             description=transaction_data.get("description","")
             amount=transaction_data.get("amount","")
             who_paid=transaction_data.get(who_paid,"")
@@ -357,10 +378,34 @@ def build_dashboard():
 
     return layout
 
+def calculate_balance():
+    data=db.reference("transactions").get()
+    i_owe=0.0
+    others_owe_me=0.0
+    if not data:
+        return i_owe,others_owe_me
+    
+    for data_id,data_info in data.items():
+        who_paid=data_info.get("who_paid","")
+
+        if who_paid != signed_in_name:
+            i_owe==i_owe+data_info["split"][signed_in_name]
+
+        if who_paid == signed_in_name:
+            split_data=data_info["split"]
+            
+            for name,amount in split_data.items():
+                if name != signed_in_name:
+                    others_owe_me+=amount
+    return round(i_owe,2),round(others_owe_me,2)
+    
+
 def go_expense(instance):
+    sm.transition.direction="left"
     sm.current = "Add Expense"
 
 def go_member(instance):
+    sm.transition.direction="right"
     sm.current = "Add Member"
 
 
