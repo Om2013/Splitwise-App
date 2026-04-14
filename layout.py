@@ -46,10 +46,10 @@ def write_email_and_password(userid, email, password, name):
     if userid is None:
         userid = random.randint(1000, 9999)
     ref = db.reference(f"users/{userid}")
-    ref.set({
+    ref.push({
         "name": name,
         "password": password,
-        "email": email3
+        "email": email
     })
     print(f"USER {userid} is added successfully")
 
@@ -67,12 +67,13 @@ def add_members(instance):
         for userid, userinfo in users_data.items():
             if userinfo.get("email","").lower() == email.lower():
                 show_popup(title="Error",message="Email Already Exists!")
+                return 
 
             userid=random.randint(1000,9999)
             password=random.randint(1000,9999)
 
         ref = db.reference(f"users/{userid}")
-        ref.set({
+        ref.push({
             "name":name,
             "email":email,
             "password":password,
@@ -111,11 +112,11 @@ def add_expense(instance):
     })
 
     show_popup("Valid","Fields have been added!")
-    description.text = ""
-    amount.text=""
-    who_paid.text = "Select Member"
+    description_input.text = ""
+    amount_input.text=""
+    who_paid_spinner.text = "Select Member"
 
-#-------------------FETCH GROUP MEMBERS-------------
+#-------------------FETCH GROUP MEMBERS-------------#
 def fetch_group_members():
     global group_member
     group_member=[]
@@ -201,13 +202,14 @@ Happy splitting!
     layout.add_widget(otp_input)
 
     def verify_otp(instance):
-        if otp_input.text == user_data["otp"]:
+        if otp_input.text == "":
+            show_popup("Error","OTP Not Entered")
+
+        elif otp_input.text == user_data["otp"]:
             show_popup("Success", "OTP Verified Successfully!")
+            write_email_and_password(None, user_data["email"], user_data["password"], user_data["name"])
             sm.current = "Dashboard"
 
-        elif otp_input.text == "":
-            show_popup("Error","OTP Not Entered")
-            write_email_and_password(None, user_data["email"], user_data["password"], user_data["name"])
         else:
             show_popup("Error", "Invalid OTP")
 
@@ -246,6 +248,10 @@ def build_login_layout():
         if users_data:
             for userid, user_info in users_data.items():
                 if email_text == user_info.get("email") and password_text == user_info.get("password"):
+                    global signed_in_name
+                    signed_in_name=user_info.get("name")
+                    dashboard_screen.clear_widgets()
+                    dashboard_screen.add_widget(build_dashboard())
                     show_popup("Success", f"Welcome {user_info.get('name')}!")
                     sm.current = "Dashboard"
                     return
@@ -318,8 +324,8 @@ def build_dashboard():
 
     if signed_in_name:
         i_owe,others_owe_me=calculate_balance()
-        owe_amount_label.text(str(i_owe))
-        others_owe_amount.text(str(others_owe_me))
+        owe_amount_label.text=(str(i_owe))
+        others_owe_amount.text=(str(others_owe_me))
     else:
         i_owe=0.0
         others_owe_me=0.0
@@ -333,7 +339,7 @@ def build_dashboard():
     table=GridLayout(cols=columns,size_hint_y=(None),spacing=5,padding=5)
     headers=["description","amount","who_paid"]+group
     for col in headers:
-        table.add_widget(Label(text="{col}",color=(255,255,0),size_hint_y=None, height=40))
+        table.add_widget(Label(text=col,color=(255,255,0),size_hint_y=None, height=40))
 
     
     ref = db.reference("transactions")
@@ -343,13 +349,15 @@ def build_dashboard():
     i_owe=0.0
     others_owe=0.0
 
-    if not data:
-        return i_owe, others_owe
-    if data:
+    if not data or not isinstance(data,dict):
+        layout.add_widget(Label(text="No Transactions Yet!"))
+        return layout 
+    
+    else:
         for transaction_id, transaction_data in data.items():
             description=transaction_data.get("description","")
             amount=transaction_data.get("amount","")
-            who_paid=transaction_data.get(who_paid,"")
+            who_paid=transaction_data.get("who_paid","")
 
             table.add_widget(Label(text=str(description),size_hint_y=None,color="blue",height=40))
             table.add_widget(Label(text=f"{who_paid}"),size_hint_y=None,color="red",height=40)
@@ -368,12 +376,8 @@ def build_dashboard():
                     except Exception:
                         share_text=str(share)          
                 table.add_widget(Label(text=share_text,size_hint_y=None,color="blue",height=40))
-    else:
-        layout.add_widget(table)
 
-
-            # Continue from here NEXT CLASS 
-            
+                layout.add_widget(table)            
 
 
     return layout
@@ -384,12 +388,15 @@ def calculate_balance():
     others_owe_me=0.0
     if not data:
         return i_owe,others_owe_me
+    if not isinstance(data,dict):
+        print("Invalid Data Format",data)
+        return 
     
     for data_id,data_info in data.items():
         who_paid=data_info.get("who_paid","")
 
         if who_paid != signed_in_name:
-            i_owe==i_owe+data_info["split"][signed_in_name]
+            i_owe=i_owe+data_info["split"][signed_in_name]
 
         if who_paid == signed_in_name:
             split_data=data_info["split"]
@@ -398,7 +405,7 @@ def calculate_balance():
                 if name != signed_in_name:
                     others_owe_me+=amount
     return round(i_owe,2),round(others_owe_me,2)
-    
+
 
 def go_expense(instance):
     sm.transition.direction="left"
@@ -421,11 +428,9 @@ def build_add_expense_screen():
     size_hint=(0.8, None),
     pos_hint={"center_x":0.5, "y":0.05}
 )
-    payer_input = TextInput(hint_text="Who Paid", size_hint=(1,None), height=70, font_size=28)
     description_input = TextInput(hint_text="Description", size_hint=(1,None), height=70, font_size=28)
     amount_input = TextInput(hint_text="Amount", size_hint=(1,None), height=70, font_size=28)
 
-    layout.add_widget(payer_input)
     layout.add_widget(who_paid_spinner)
     layout.add_widget(description_input)
     layout.add_widget(amount_input)
