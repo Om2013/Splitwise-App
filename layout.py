@@ -90,31 +90,53 @@ def add_members(instance):
 #------------------ADD EXPENSE------------------
 def add_expense(instance):
     
+    global group_member
+
     description=description_input.text.strip()
     amount=amount_input.text.strip()
     who_paid=who_paid_spinner.text
+    group_member=fetch_group_members()
+
+    group_member=[m for m in group_member if m and isinstance(m,str)]
 
     if not description or not amount or not who_paid:
         show_popup("Invalid","All Fields Not Entered!")
         return 
     
-    amount=float(amount)
-    split_amount=amount/len(group_member)
+    if not group_member:
+        show_popup("Invalid","Group Member Not Found!")
+        return 
+    try:
+        
+    
+        amount=float(amount)
+    except:
+        show_popup("Error","Invalid Amount")
+        return 
+    
+    split_amount=round(amount/len(group_member),2)
+    split_dict={}
+    for member in group_member:
+        split_dict[str(member)]=split_amount
 
-    split_dict=dict.fromkeys(group_member,split_amount)
-    ref=db.reference("transactions")
-    ref.push({
-        "transaction_id":random.randint(1000,9999),
-        "description":description,
-        "amount":amount,
-        "who_paid":who_paid,
-        "split":split_dict
-    })
+    #split_dict=dict.fromkeys(group_member,split_amount)
+    try:
+        ref=db.reference("transactions")
+        ref.push({
+            "transaction_id":random.randint(1000,9999),
+            "description":description,
+            "amount":amount,
+            "who_paid":who_paid,
+            "split":split_dict
+        })
 
-    show_popup("Valid","Fields have been added!")
-    description_input.text = ""
-    amount_input.text=""
-    who_paid_spinner.text = "Select Member"
+        show_popup("Valid","Expense has been added!")
+        description_input.text = ""
+        amount_input.text=""
+        who_paid_spinner.text = "Select Member"
+    except Exception as e:
+        print("firebase_error")
+        show_popup("Error",str(e))
 
 #-------------------FETCH GROUP MEMBERS-------------#
 def fetch_group_members():
