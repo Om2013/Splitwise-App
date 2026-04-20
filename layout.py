@@ -46,7 +46,7 @@ def write_email_and_password(userid, email, password, name):
     if userid is None:
         userid = random.randint(1000, 9999)
     ref = db.reference(f"users/{userid}")
-    ref.push({
+    ref.set({
         "name": name,
         "password": password,
         "email": email
@@ -73,7 +73,7 @@ def add_members(instance):
             password=random.randint(1000,9999)
 
         ref = db.reference(f"users/{userid}")
-        ref.push({
+        ref.set({
             "name":name,
             "email":email,
             "password":password,
@@ -145,7 +145,7 @@ def fetch_group_members():
     ref=db.reference("users")
     users_data=ref.get()
     for userid,userinfo in users_data.items():
-        name=userinfo.get("name")
+        name=userinfo.get("name","")
         group_member.append(name)
     return group_member
 
@@ -244,6 +244,12 @@ Happy splitting!
 
     return layout
 
+def clear_transactions():
+    db.ref("transactions").delete()
+    table.clear_widgets()
+    owe_amount_label.text=0
+    others_owe_amount.text=0
+    show_popup("Success","All Transactions have been cleared")
 
 # ---------------- LOGIN SCREEN ----------------
 def build_login_layout():
@@ -313,7 +319,11 @@ def build_dashboard():
     others_owe_layout.add_widget(others_owe_amount)
     info_float.add_widget(others_owe_layout)
 
+    refresh_button=Button(text="Clear All Transactions?")
+    refresh_button.bind(on_press=clear_transactions)
+    info_float.add_widget(refresh_button)
     layout.add_widget(info_float)
+
 
     button_bar = BoxLayout(
         orientation="horizontal",
@@ -382,12 +392,12 @@ def build_dashboard():
             who_paid=transaction_data.get("who_paid","")
 
             table.add_widget(Label(text=str(description),size_hint_y=None,color="blue",height=40))
-            table.add_widget(Label(text=f"{who_paid}"),size_hint_y=None,color="red",height=40)
+            table.add_widget(Label(text=f"{who_paid}",size_hint_y=None,color="red",height=40))
             table.add_widget(Label(text=f"{amount}",size_hint_y=None, color="pink",height=40))
 
             split=transaction_data.get("split",{})
             for member in group:
-                share=split.get(member,"") 
+                share=split.get(member,0) 
                 if isinstance(share,(int,float)):
                     share_text=f"{share:.2f}"
                 elif share== "" or share is None:
@@ -399,7 +409,7 @@ def build_dashboard():
                         share_text=str(share)          
                 table.add_widget(Label(text=share_text,size_hint_y=None,color="blue",height=40))
 
-                layout.add_widget(table)            
+            layout.add_widget(table)            
 
 
     return layout
@@ -540,6 +550,11 @@ login_screen = Screen(name="Log In")
 login_screen.add_widget(build_login_layout())
 
 dashboard_screen = Screen(name="Dashboard")
+def update_dashboard_screen(*args):
+    dashboard_screen.clear_widgets()
+    dashboard_screen.add_widget(build_dashboard())
+dashboard_screen.bind(on_enter=update_dashboard_screen)
+
 dashboard_screen.add_widget(build_dashboard())
 
 add_expense_screen = Screen(name="Add Expense")
