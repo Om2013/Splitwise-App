@@ -69,23 +69,23 @@ def add_members(instance):
                 show_popup(title="Error",message="Email Already Exists!")
                 return 
 
-            userid=random.randint(1000,9999)
-            password=random.randint(1000,9999)
+    userid=random.randint(1000,9999)
+    password=random.randint(1000,9999)
 
-        ref = db.reference(f"users/{userid}")
-        ref.set({
-            "name":name,
-            "email":email,
-            "password":password,
-            "contact":contact                
-        })
-        show_popup(title="Valid",message="Updated to Database")
+    ref = db.reference(f"users/{userid}")
+    ref.set({
+        "name":name,
+        "email":email,
+        "password":password,
+        "contact":contact                
+    })
+    show_popup(title="Valid",message="Updated to Database")
 
-        group_member_name_input.text = ""
-        group_member_email_input.text = ""
-        group_member_contact_input.text = ""
+    group_member_name_input.text = ""
+    group_member_email_input.text = ""
+    group_member_contact_input.text = ""
 
-        send_email_to_new_user(email)
+    send_email_to_new_user(email)
 
 #------------------ADD EXPENSE------------------
 def add_expense(instance):
@@ -197,7 +197,7 @@ If you did not request this, you can safely ignore this email.
 Happy splitting!
 """
 
-            msg = MIMEMultipart(body)
+            msg = MIMEMultipart()
             msg["subject"] = subject 
             msg["From"] = sender_email 
             msg["To"] = receiver_email 
@@ -245,8 +245,8 @@ Happy splitting!
     return layout
 
 def clear_transactions():
-    db.ref("transactions").delete()
-    table.clear_widgets()
+    db.reference("transactions").delete()
+    update_dashboard_screen() 
     owe_amount_label.text=0
     others_owe_amount.text=0
     show_popup("Success","All Transactions have been cleared")
@@ -272,6 +272,10 @@ def build_login_layout():
 
         ref = db.reference("users")
         users_data = ref.get()
+
+        if not users_data:
+            return []
+
 
         if users_data:
             for userid, user_info in users_data.items():
@@ -368,7 +372,8 @@ def build_dashboard():
 
     columns=3+num_of_length
 
-    table=GridLayout(cols=columns,size_hint_y=(None),spacing=5,padding=5)
+    table=GridLayout(cols=columns,size_hint=(0.9,None),pos_hint={"center_x":0.5,"top":0.6},spacing=5,padding=5)
+    table.bind(minimum_height=table.setter("height"))
     headers=["description","amount","who_paid"]+group
     for col in headers:
         table.add_widget(Label(text=col,color=(255,255,0),size_hint_y=None, height=40))
@@ -391,9 +396,9 @@ def build_dashboard():
             amount=transaction_data.get("amount","")
             who_paid=transaction_data.get("who_paid","")
 
-            table.add_widget(Label(text=str(description),size_hint_y=None,color="blue",height=40))
-            table.add_widget(Label(text=f"{who_paid}",size_hint_y=None,color="red",height=40))
-            table.add_widget(Label(text=f"{amount}",size_hint_y=None, color="pink",height=40))
+            table.add_widget(Label(text=str(description),size_hint_y=None,color=(0,0,1,1),height=40))
+            table.add_widget(Label(text=f"{who_paid}",size_hint_y=None,color=(1,0,0,1),height=40))
+            table.add_widget(Label(text=f"{amount}",size_hint_y=None, color=(0.5,0,0.5,1),height=40))
 
             split=transaction_data.get("split",{})
             for member in group:
@@ -407,9 +412,9 @@ def build_dashboard():
                         share_text=f"{float(share):.2f}"
                     except Exception:
                         share_text=str(share)          
-                table.add_widget(Label(text=share_text,size_hint_y=None,color="blue",height=40))
+                table.add_widget(Label(text=share_text,size_hint_y=None,color=(0,0,1,1),height=40))
 
-            layout.add_widget(table)            
+        layout.add_widget(table)            
 
 
     return layout
@@ -524,7 +529,7 @@ def send_email_to_new_user(email):
     
     body = f"You Have Been Added as a Group Member in Splitwise. You can now login with this email : {email},  and password {password} "
     
-    msg = MIMEMultipart(body)
+    msg = MIMEMultipart()
     msg["subject"] = subject 
     msg["From"] = sender_email 
     msg["To"] = email 
